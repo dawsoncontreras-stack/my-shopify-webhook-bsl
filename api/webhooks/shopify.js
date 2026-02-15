@@ -1,5 +1,5 @@
 // api/webhooks/shopify.js
-// UPDATED VERSION - Creates line items for each wallet for partial claiming
+// FIXED VERSION - Handles Vercel's automatic body parsing
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
@@ -11,14 +11,47 @@ const supabase = createClient(
 
 /**
  * Verify webhook is from Shopify
+ * NOTE: In Vercel, req.body is already parsed, so we need to re-stringify it
  */
 function verifyShopifyWebhook(body, hmacHeader, secret) {
+  // Convert the parsed body back to a string for verification
+  const rawBody = typeof body === 'string' ? body : JSON.stringify(body);
+  
   const hash = crypto
     .createHmac('sha256', secret)
-    .update(body, 'utf8')
+    .update(rawBody, 'utf8')
     .digest('base64');
   
+  console.log('Computed hash:', hash);
+  console.log('Shopify hash:', hmacHeader);
+  console.log('Match:', hash === hmacHeader);
+  
   return hash === hmacHeader;
+}
+
+/**
+ * Vercel config to get raw body
+ */
+export const config = {
+  api: {
+    bodyParser: false, // Disable automatic body parsing
+  },
+};
+
+/**
+ * Get raw body from request
+ */
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      resolve(data);
+    });
+    req.on('error', reject);
+  });
 }
 
 /**
@@ -30,15 +63,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    const rawBody = JSON.stringify(req.body);
+    // Get the raw body for HMAC verification
+    const rawBody = await getRawBody(req);
+    const body = JSON.parse(rawBody);
+    
     const hmacHeader = req.headers['x-shopify-hmac-sha256'];
     const shopifyTopic = req.headers['x-shopify-topic'];
 
-    // ADD THESE DEBUG LINES:
     console.log('Secret from env:', process.env.SHOPIFY_WEBHOOK_SECRET ? 'EXISTS' : 'MISSING');
     console.log('HMAC header:', hmacHeader);
     console.log('Topic:', shopifyTopic);
-    
+
+    // Verify webhook authenticity
     const isValid = verifyShopifyWebhook(
       rawBody,
       hmacHeader,
@@ -46,19 +82,20 @@ export default async function handler(req, res) {
     );
 
     if (!isValid) {
-      console.error('Invalid webhook signature');
+      console.error('❌ Invalid webhook signature');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     console.log(`✅ Webhook received: ${shopifyTopic}`);
 
+    // Route to appropriate handler
     switch (shopifyTopic) {
       case 'orders/create':
-        await handleOrderCreate(req.body);
+        await handleOrderCreate(body);
         break;
       
       case 'orders/updated':
-        await handleOrderUpdate(req.body);
+        await handleOrderUpdate(body);
         break;
 
       default:
@@ -75,15 +112,12 @@ export default async function handler(req, res) {
 
 /**
  * Extract tags from Shopify line item properties
- * Shopify stores custom fields as properties array
  */
 function extractLineItemTags(lineItem) {
   const tags = [];
   
-  // Check if line item has properties (custom fields)
   if (lineItem.properties && Array.isArray(lineItem.properties)) {
     lineItem.properties.forEach(prop => {
-      // Format: "Add Custom ID: Yes" -> "add_custom_id:yes"
       const key = prop.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
       const value = prop.value.toLowerCase().replace(/\s+/g, '_');
       tags.push(`${key}:${value}`);
@@ -95,12 +129,10 @@ function extractLineItemTags(lineItem) {
 
 /**
  * Handle new order creation
- * Creates both the parent order and individual line items
  */
 async function handleOrderCreate(shopifyOrder) {
   console.log('📦 Processing new order:', shopifyOrder.order_number);
 
-  // Extract customer info
   const customerName = shopifyOrder.customer 
     ? `${shopifyOrder.customer.first_name || ''} ${shopifyOrder.customer.last_name || ''}`.trim()
     : shopifyOrder.billing_address?.name || 'Unknown';
@@ -109,17 +141,16 @@ async function handleOrderCreate(shopifyOrder) {
                        shopifyOrder.contact_email || 
                        null;
 
-  // Extract order-level tags
   const orderTags = shopifyOrder.tags ? shopifyOrder.tags.split(',').map(t => t.trim()) : [];
 
-  // Create the parent order record
+  // Create parent order
   const orderData = {
     order_number: shopifyOrder.order_number.toString(),
     shopify_order_id: shopifyOrder.id.toString(),
     status: 'pending',
     orderer_name: customerName,
-    points: 0, // Will be sum of all line items
-    wallet_type: null, // Not used when we have line items
+    points: 0,
+    wallet_type: null,
     total_wallets: shopifyOrder.line_items.length,
     
     shopify_metadata: {
@@ -139,7 +170,6 @@ async function handleOrderCreate(shopifyOrder) {
     }
   };
 
-  // Insert parent order
   const { data: insertedOrder, error: orderError } = await supabase
     .from('orders')
     .insert([orderData])
@@ -153,9 +183,8 @@ async function handleOrderCreate(shopifyOrder) {
 
   console.log('✅ Order inserted:', insertedOrder.order_number);
 
-  // Create line items for each wallet
+  // Create line items
   const lineItemsData = shopifyOrder.line_items.map(item => {
-    // Extract tags specific to this wallet
     const itemTags = extractLineItemTags(item);
     
     return {
@@ -170,16 +199,11 @@ async function handleOrderCreate(shopifyOrder) {
       quantity: item.quantity,
       price: parseFloat(item.price),
       
-      // Will be assigned by your mapping logic
       wallet_type: null,
       points: 0,
-      
-      // Tags for this specific wallet
       tags: itemTags,
-      
       status: 'pending',
       
-      // Store complete line item data
       shopify_line_item: {
         product_id: item.product_id,
         variant_id: item.variant_id,
@@ -195,7 +219,6 @@ async function handleOrderCreate(shopifyOrder) {
     };
   });
 
-  // Insert all line items
   const { data: insertedLineItems, error: lineItemsError } = await supabase
     .from('order_line_items')
     .insert(lineItemsData)
@@ -219,7 +242,6 @@ async function handleOrderCreate(shopifyOrder) {
 
 /**
  * Handle order updates
- * Updates parent order metadata and syncs status to line items if needed
  */
 async function handleOrderUpdate(shopifyOrder) {
   console.log('🔄 Updating order:', shopifyOrder.order_number);
@@ -234,7 +256,6 @@ async function handleOrderUpdate(shopifyOrder) {
 
   const orderTags = shopifyOrder.tags ? shopifyOrder.tags.split(',').map(t => t.trim()) : [];
 
-  // Update parent order metadata
   const updateData = {
     orderer_name: customerName,
     updated_at: new Date().toISOString(),
@@ -268,7 +289,6 @@ async function handleOrderUpdate(shopifyOrder) {
     throw orderError;
   }
 
-  // If order was cancelled, void all pending line items
   if (shopifyOrder.cancelled_at) {
     const { error: voidError } = await supabase
       .from('order_line_items')
