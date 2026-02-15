@@ -1,142 +1,142 @@
-// walletMapping.js
-// Configuration and functions for mapping product names to wallet types
+// src/lib/walletMapping.js
+// UPDATED VERSION - Expanded wallet types with better matching and accessory handling
 
 /**
- * WALLET TYPE MAPPINGS
- * Based on your product catalog with point values
+ * EXPANDED WALLET TYPE MAPPINGS
+ * Now using product name as wallet_type for maximum flexibility
  */
 
 export const WALLET_MAPPINGS = {
   // 2 POINTS
-  'peyton': {
+  'Peyton': {
     keywords: ['peyton'],
     points: 2
   },
-  'richmond': {
+  'The Richmond': {
     keywords: ['richmond'],
     points: 2
   },
-  'keller-money-clip': {
+  'Keller Money Clip': {
     keywords: ['keller money clip', 'keller'],
     points: 2
   },
-  'georgetown': {
+  'The Georgetown': {
     keywords: ['georgetown'],
     points: 2
   },
-  'pflugerville': {
+  'Pflugerville': {
     keywords: ['pflugerville'],
     points: 2
   },
-  'minimalist-badge': {
+  'Minimalist Badge Wallet': {
     keywords: ['minimalist badge wallet', 'minimalist badge'],
     points: 2
   },
-  'knife-sheath': {
+  'Knife Sheath': {
     keywords: ['knife sheath'],
     points: 2
   },
-  'keychain': {
+  'Keychain': {
     keywords: ['keychain'],
     points: 2
   },
 
   // 3 POINTS
-  'passport-holder': {
+  'Passport Holder': {
     keywords: ['passport holder', 'passport'],
     points: 3
   },
-  'victory': {
+  'Victory': {
     keywords: ['victory'],
     points: 3
   },
-  'western-vertical': {
+  'Western Vertical Wallet': {
     keywords: ['western vertical wallet', 'western vertical'],
     points: 3
   },
-  'valet-tray': {
+  'Valet Tray': {
     keywords: ['valet tray'],
     points: 3
   },
-  'tyler-vertical': {
+  'Tyler Vertical Wallet': {
     keywords: ['tyler vertical wallet', 'tyler vertical'],
     points: 3
   },
-  'mansfield': {
+  'Mansfield': {
     keywords: ['mansfield'],
     points: 3
   },
-  'field-notes-cover': {
+  'Leather Field Notes Cover': {
     keywords: ['leather field notes cover', 'field notes cover', 'field notes'],
     points: 3
   },
-  'badge-vertical': {
+  'Badge Vertical Wallet': {
     keywords: ['badge vertical wallet', 'badge vertical'],
     points: 3
   },
-  'apple-watch-band': {
+  'Apple Watch Leather Band': {
     keywords: ['apple watch leather band', 'apple watch band', 'watch band'],
     points: 3
   },
 
   // 4 POINTS
-  'glory-snap': {
+  'Glory Snap': {
     keywords: ['glory snap'],
     points: 4
   },
-  'federal-badge-small': {
+  'Federal Badge Wallet Small': {
     keywords: ['federal badge wallet small', 'federal badge small'],
     points: 4
   },
-  'western-long': {
+  'Western Long Wallet': {
     keywords: ['western long wallet', 'western long'],
     points: 4
   },
-  'houstonian-long': {
+  'The Houstonian Long Wallet': {
     keywords: ['houstonian long wallet', 'houstonian long', 'houstonian'],
     points: 4
   },
-  'badge-long': {
+  'Badge Long Wallet': {
     keywords: ['badge long wallet', 'badge long'],
     points: 4
   },
 
   // 5 POINTS
-  'sugar-land-clutch': {
+  'Sugar Land Clutch': {
     keywords: ['sugar land clutch', 'sugar land'],
     points: 5
   },
-  'western-bifold': {
+  'Western Bifold Wallet': {
     keywords: ['western bifold wallet', 'western bifold'],
     points: 5
   },
-  'trinity-trifold': {
+  'Trinity Trifold Wallet': {
     keywords: ['trinity trifold wallet', 'trinity trifold', 'trinity'],
     points: 5
   },
-  'rio-grande': {
+  'Rio Grande': {
     keywords: ['rio grande'],
     points: 5
   },
-  'badge-bifold': {
+  'Badge Bifold Wallet': {
     keywords: ['badge bifold wallet', 'badge bifold'],
     points: 5
   },
 
   // 6 POINTS
-  'badge-clutch': {
+  'Badge Clutch Wallet': {
     keywords: ['badge clutch wallet', 'badge clutch'],
     points: 6
   },
-  'western-trifold': {
+  'Western Trifold Wallet': {
     keywords: ['western trifold wallet', 'western trifold'],
     points: 6
   },
-  'big-bend': {
+  'Big Bend': {
     keywords: ['big bend'],
     points: 6
   },
-  'badge-trifold': {
+  'Badge Trifold Wallet': {
     keywords: ['badge trifold wallet', 'badge trifold'],
     points: 6
   },
@@ -144,10 +144,7 @@ export const WALLET_MAPPINGS = {
 
 /**
  * Determine wallet type from product name
- * Returns the wallet_type_id or null if no match
- * 
- * NOTE: This uses a priority system where more specific matches come first
- * For example, "Badge Trifold Wallet" will match 'badge-trifold' before 'badge-bifold'
+ * Returns the wallet type name (e.g., "Badge Trifold Wallet") or null if no match
  */
 export function getWalletType(productName) {
   if (!productName) return null;
@@ -163,17 +160,16 @@ export function getWalletType(productName) {
   
   // Check each wallet type's keywords
   for (const [walletType, config] of sortedMappings) {
-    // Check if any keyword is present in the product name
     const hasMatch = config.keywords.some(keyword => 
       name.includes(keyword.toLowerCase())
     );
     
     if (hasMatch) {
-      return walletType;
+      return walletType; // Return the full name like "Badge Trifold Wallet"
     }
   }
   
-  return null; // No match found
+  return null;
 }
 
 /**
@@ -184,21 +180,41 @@ export function getPointsForWalletType(walletType) {
 }
 
 /**
- * Get display name for wallet type
+ * Check if a product is an accessory (not a wallet)
  */
-export function getWalletDisplayName(walletType) {
-  // Convert 'badge-trifold' to 'Badge Trifold'
-  return walletType
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+export function isAccessory(productName) {
+  if (!productName) return false;
+  
+  const name = productName.toLowerCase();
+  const ACCESSORY_KEYWORDS = [
+    'monogram',
+    'special engraving',
+    'monogram_font',
+    'engraving_font',
+    'engraving_location',
+    'customer_note',
+    'custom_logo',
+    'add custom id',
+    'badge type',
+    'add custom badge cutout',
+    'rfid cards',
+    'extra'
+  ];
+  
+  return ACCESSORY_KEYWORDS.some(keyword => name.includes(keyword));
 }
 
 /**
  * Process a line item and assign wallet type and points
- * This should be called from your real-time subscription
+ * Now handles accessories separately
  */
 export async function processLineItem(supabase, lineItem) {
+  // Skip if it's an accessory
+  if (lineItem.item_type === 'accessory') {
+    console.log(`⚙️ Skipping accessory: ${lineItem.product_name}`);
+    return lineItem;
+  }
+
   // Determine wallet type from product name
   const walletType = getWalletType(lineItem.product_name);
   
@@ -231,6 +247,7 @@ export async function processLineItem(supabase, lineItem) {
 
 /**
  * Process all line items for an order
+ * Separates wallets from accessories and updates order totals
  */
 export async function processOrderLineItems(supabase, orderId) {
   // Get all line items for this order
@@ -244,35 +261,114 @@ export async function processOrderLineItems(supabase, orderId) {
     return;
   }
   
-  // Process each line item
+  // Separate wallets from accessories
+  const walletItems = lineItems.filter(item => item.item_type === 'wallet');
+  const accessoryItems = lineItems.filter(item => item.item_type === 'accessory');
+  
+  console.log(`Processing ${walletItems.length} wallets and ${accessoryItems.length} accessories`);
+  
+  // Process only wallet items
   const results = await Promise.all(
-    lineItems.map(item => processLineItem(supabase, item))
+    walletItems.map(item => processLineItem(supabase, item))
   );
   
-  // Calculate total points for the order
+  // Calculate total points for the order (wallets only)
   const totalPoints = results
     .filter(Boolean)
     .reduce((sum, item) => sum + item.points, 0);
   
-  // Update parent order with total points
+  // Collate all wallet types
+  const walletTypes = results
+    .filter(Boolean)
+    .map(item => item.wallet_type)
+    .filter(Boolean)
+    .join(', ');
+  
+  // Update parent order with totals
   await supabase
     .from('orders')
-    .update({ points: totalPoints })
+    .update({ 
+      points: totalPoints,
+      wallet_type: walletTypes,
+      total_wallets: walletItems.length,
+      total_accessories: accessoryItems.length
+    })
     .eq('id', orderId);
   
-  console.log(`✅ Processed ${results.length} line items, total points: ${totalPoints}`);
+  console.log(`✅ Processed order: ${walletItems.length} wallets (${totalPoints} pts), ${accessoryItems.length} accessories`);
+  console.log(`   Wallet types: ${walletTypes}`);
   
   return results;
 }
 
 /**
- * HELPER: Get all unmapped line items
- * Useful for debugging or initial data migration
+ * Get wallet customization summary
+ * Useful for displaying wallet details in UI
+ */
+export function getWalletCustomizationSummary(walletAttributes) {
+  if (!walletAttributes) return [];
+  
+  const customizations = [];
+  
+  if (walletAttributes.color) {
+    customizations.push(`Color: ${walletAttributes.color}`);
+  }
+  
+  if (walletAttributes.has_monogram) {
+    const text = walletAttributes.monogram_text ? ` (${walletAttributes.monogram_text})` : '';
+    const font = walletAttributes.monogram_font ? ` - ${walletAttributes.monogram_font}` : '';
+    customizations.push(`Monogram${text}${font}`);
+  }
+  
+  if (walletAttributes.has_special_engraving) {
+    const text = walletAttributes.special_engraving_text ? ` (${walletAttributes.special_engraving_text})` : '';
+    const font = walletAttributes.engraving_font ? ` - ${walletAttributes.engraving_font}` : '';
+    const location = walletAttributes.engraving_location ? ` at ${walletAttributes.engraving_location}` : '';
+    customizations.push(`Special Engraving${text}${font}${location}`);
+  }
+  
+  if (walletAttributes.has_custom_id) {
+    const text = walletAttributes.custom_id_text ? ` (${walletAttributes.custom_id_text})` : '';
+    customizations.push(`Custom ID${text}`);
+  }
+  
+  if (walletAttributes.has_badge_cutout) {
+    const type = walletAttributes.badge_type ? ` (${walletAttributes.badge_type})` : '';
+    customizations.push(`Badge Cutout${type}`);
+  } else if (walletAttributes.badge_type) {
+    customizations.push(`Badge Type: ${walletAttributes.badge_type}`);
+  }
+  
+  if (walletAttributes.has_custom_logo) {
+    const details = walletAttributes.custom_logo_details ? ` (${walletAttributes.custom_logo_details})` : '';
+    customizations.push(`Custom Logo${details}`);
+  }
+  
+  if (walletAttributes.thread_color) {
+    customizations.push(`Thread: ${walletAttributes.thread_color}`);
+  }
+  
+  if (walletAttributes.customer_note) {
+    customizations.push(`Note: ${walletAttributes.customer_note}`);
+  }
+  
+  if (walletAttributes.other_customizations?.length > 0) {
+    walletAttributes.other_customizations.forEach(custom => {
+      customizations.push(`${custom.name}: ${custom.value}`);
+    });
+  }
+  
+  return customizations;
+}
+
+/**
+ * HELPER: Get all unmapped line items (wallets only)
  */
 export async function getUnmappedLineItems(supabase) {
   const { data, error } = await supabase
     .from('order_line_items')
     .select('*')
+    .eq('item_type', 'wallet')
     .is('wallet_type', null);
   
   if (error) {
@@ -284,13 +380,12 @@ export async function getUnmappedLineItems(supabase) {
 }
 
 /**
- * HELPER: Batch process all unmapped line items
- * Run this after setting up your mappings
+ * HELPER: Batch process all unmapped wallet line items
  */
 export async function processAllUnmappedLineItems(supabase) {
   const unmappedItems = await getUnmappedLineItems(supabase);
   
-  console.log(`Found ${unmappedItems.length} unmapped line items`);
+  console.log(`Found ${unmappedItems.length} unmapped wallet items`);
   
   for (const item of unmappedItems) {
     await processLineItem(supabase, item);
@@ -301,7 +396,6 @@ export async function processAllUnmappedLineItems(supabase) {
 
 /**
  * HELPER: Test your mappings
- * Run this to verify products are being matched correctly
  */
 export function testMappings() {
   const testProducts = [
@@ -335,16 +429,27 @@ export function testMappings() {
     "Badge Clutch Wallet",
     "Western Trifold Wallet",
     "Big Bend",
-    "Badge Trifold Wallet"
+    "Badge Trifold Wallet",
+    // Accessories
+    "RFID Blocking Card",
+    "Monogram Add-On",
+    "Gift Wrap Service"
   ];
 
   console.log('Testing wallet mappings...\n');
   
   testProducts.forEach(product => {
     const type = getWalletType(product);
+    const isAcc = isAccessory(product);
     const points = type ? getPointsForWalletType(type) : 0;
-    const status = type ? '✅' : '❌';
-    console.log(`${status} "${product}" → ${type || 'NO MATCH'} (${points} pts)`);
+    
+    if (isAcc) {
+      console.log(`⚙️ "${product}" → ACCESSORY (no points)`);
+    } else if (type) {
+      console.log(`✅ "${product}" → ${type} (${points} pts)`);
+    } else {
+      console.log(`❌ "${product}" → NO MATCH`);
+    }
   });
 }
 

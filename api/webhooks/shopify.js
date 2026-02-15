@@ -1,324 +1,457 @@
-// api/webhooks/shopify.js
-// FIXED VERSION - Handles Vercel's automatic body parsing
-
-import crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
-
+// src/lib/walletMapping.js
+// UPDATED VERSION - Expanded wallet types with better matching and accessory handling
 
 /**
- * Verify webhook is from Shopify
- * Uses the raw body exactly as received
+ * EXPANDED WALLET TYPE MAPPINGS
+ * Now using product name as wallet_type for maximum flexibility
  */
-function verifyShopifyWebhook(rawBody, hmacHeader, secret) {
-  const hash = crypto
-    .createHmac('sha256', secret)
-    .update(rawBody, 'utf8')
-    .digest('base64');
-  
-  console.log('Raw body length:', rawBody.length);
-  console.log('Computed hash:', hash);
-  console.log('Shopify hash:', hmacHeader);
-  console.log('Match:', hash === hmacHeader);
-  
-  return hash === hmacHeader;
-}
 
-/**
- * Vercel config to get raw body
- */
-export const config = {
-  api: {
-    bodyParser: false, // Disable automatic body parsing
+export const WALLET_MAPPINGS = {
+  // 2 POINTS
+  'Peyton': {
+    keywords: ['peyton'],
+    points: 2
+  },
+  'The Richmond': {
+    keywords: ['richmond'],
+    points: 2
+  },
+  'Keller Money Clip': {
+    keywords: ['keller money clip', 'keller'],
+    points: 2
+  },
+  'The Georgetown': {
+    keywords: ['georgetown'],
+    points: 2
+  },
+  'Pflugerville': {
+    keywords: ['pflugerville'],
+    points: 2
+  },
+  'Minimalist Badge Wallet': {
+    keywords: ['minimalist badge wallet', 'minimalist badge'],
+    points: 2
+  },
+  'Knife Sheath': {
+    keywords: ['knife sheath'],
+    points: 2
+  },
+  'Keychain': {
+    keywords: ['keychain'],
+    points: 2
+  },
+
+  // 3 POINTS
+  'Passport Holder': {
+    keywords: ['passport holder', 'passport'],
+    points: 3
+  },
+  'Victory': {
+    keywords: ['victory'],
+    points: 3
+  },
+  'Western Vertical Wallet': {
+    keywords: ['western vertical wallet', 'western vertical'],
+    points: 3
+  },
+  'Valet Tray': {
+    keywords: ['valet tray'],
+    points: 3
+  },
+  'Tyler Vertical Wallet': {
+    keywords: ['tyler vertical wallet', 'tyler vertical'],
+    points: 3
+  },
+  'Mansfield': {
+    keywords: ['mansfield'],
+    points: 3
+  },
+  'Leather Field Notes Cover': {
+    keywords: ['leather field notes cover', 'field notes cover', 'field notes'],
+    points: 3
+  },
+  'Badge Vertical Wallet': {
+    keywords: ['badge vertical wallet', 'badge vertical'],
+    points: 3
+  },
+  'Apple Watch Leather Band': {
+    keywords: ['apple watch leather band', 'apple watch band', 'watch band'],
+    points: 3
+  },
+
+  // 4 POINTS
+  'Glory Snap': {
+    keywords: ['glory snap'],
+    points: 4
+  },
+  'Federal Badge Wallet Small': {
+    keywords: ['federal badge wallet small', 'federal badge small'],
+    points: 4
+  },
+  'Western Long Wallet': {
+    keywords: ['western long wallet', 'western long'],
+    points: 4
+  },
+  'The Houstonian Long Wallet': {
+    keywords: ['houstonian long wallet', 'houstonian long', 'houstonian'],
+    points: 4
+  },
+  'Badge Long Wallet': {
+    keywords: ['badge long wallet', 'badge long'],
+    points: 4
+  },
+
+  // 5 POINTS
+  'Sugar Land Clutch': {
+    keywords: ['sugar land clutch', 'sugar land'],
+    points: 5
+  },
+  'Western Bifold Wallet': {
+    keywords: ['western bifold wallet', 'western bifold'],
+    points: 5
+  },
+  'Trinity Trifold Wallet': {
+    keywords: ['trinity trifold wallet', 'trinity trifold', 'trinity'],
+    points: 5
+  },
+  'Rio Grande': {
+    keywords: ['rio grande'],
+    points: 5
+  },
+  'Badge Bifold Wallet': {
+    keywords: ['badge bifold wallet', 'badge bifold'],
+    points: 5
+  },
+
+  // 6 POINTS
+  'Badge Clutch Wallet': {
+    keywords: ['badge clutch wallet', 'badge clutch'],
+    points: 6
+  },
+  'Western Trifold Wallet': {
+    keywords: ['western trifold wallet', 'western trifold'],
+    points: 6
+  },
+  'Big Bend': {
+    keywords: ['big bend'],
+    points: 6
+  },
+  'Badge Trifold Wallet': {
+    keywords: ['badge trifold wallet', 'badge trifold'],
+    points: 6
   },
 };
 
 /**
- * Get raw body from request
+ * Determine wallet type from product name
+ * Returns the wallet type name (e.g., "Badge Trifold Wallet") or null if no match
  */
-async function getRawBody(req) {
-  return new Promise((resolve, reject) => {
-    let data = '';
-    req.on('data', chunk => {
-      data += chunk;
-    });
-    req.on('end', () => {
-      resolve(data);
-    });
-    req.on('error', reject);
+export function getWalletType(productName) {
+  if (!productName) return null;
+  
+  const name = productName.toLowerCase();
+  
+  // Sort by keyword length (longest first) to prioritize more specific matches
+  const sortedMappings = Object.entries(WALLET_MAPPINGS).sort((a, b) => {
+    const maxLengthA = Math.max(...a[1].keywords.map(k => k.length));
+    const maxLengthB = Math.max(...b[1].keywords.map(k => k.length));
+    return maxLengthB - maxLengthA;
   });
-}
-
-/**
- * Main webhook handler for Vercel
- */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    // Get the raw body for HMAC verification
-    const rawBody = await getRawBody(req);
-
- //  ADD THIS:
-    console.log('First 200 chars of raw body:', rawBody.substring(0, 200));
-    console.log('Raw body starts with:', rawBody[0]);
-    console.log('Raw body encoding check:', Buffer.from(rawBody, 'utf8').toString('utf8') === rawBody);
-
-    const body = JSON.parse(rawBody);
-    
-    const hmacHeader = req.headers['x-shopify-hmac-sha256'];
-    const shopifyTopic = req.headers['x-shopify-topic'];
-
-    console.log('ALL HEADERS:', JSON.stringify(req.headers, null, 2));
-    console.log('Secret from env:', process.env.SHOPIFY_WEBHOOK_SECRET ? 'EXISTS' : 'MISSING');
-    console.log('HMAC header:', hmacHeader);
-    console.log('Topic:', shopifyTopic);
-
-    // Verify webhook authenticity
-    // const isValid = verifyShopifyWebhook(
-    //   rawBody,
-    //   hmacHeader,
-    //   process.env.SHOPIFY_WEBHOOK_SECRET
-    // );
-
-    // TEMPORARY: Skip HMAC verification
-    console.log('⚠️ Skipping HMAC verification for development');
-    const isValid = true;
-
-    if (!isValid) {
-      console.error('❌ Invalid webhook signature');
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-
-    console.log(`✅ Webhook received: ${shopifyTopic}`);
-
-    // Route to appropriate handler
-    switch (shopifyTopic) {
-      case 'orders/create':
-        await handleOrderCreate(body);
-        break;
-      
-      case 'orders/updated':
-        await handleOrderUpdate(body);
-        break;
-
-      default:
-        console.log(`Unhandled topic: ${shopifyTopic}`);
-    }
-
-    return res.status(200).json({ received: true });
-
-  } catch (error) {
-    console.error('❌ Webhook error:', error);
-    return res.status(200).json({ error: error.message });
-  }
-}
-
-/**
- * Extract tags from Shopify line item properties
- */
-function extractLineItemTags(lineItem) {
-  const tags = [];
   
-  if (lineItem.properties && Array.isArray(lineItem.properties)) {
-    lineItem.properties.forEach(prop => {
-      const key = prop.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      const value = prop.value.toLowerCase().replace(/\s+/g, '_');
-      tags.push(`${key}:${value}`);
-    });
+  // Check each wallet type's keywords
+  for (const [walletType, config] of sortedMappings) {
+    const hasMatch = config.keywords.some(keyword => 
+      name.includes(keyword.toLowerCase())
+    );
+    
+    if (hasMatch) {
+      return walletType; // Return the full name like "Badge Trifold Wallet"
+    }
   }
   
-  return tags;
+  return null;
 }
 
 /**
- * Handle new order creation
+ * Get points for a wallet type
  */
-async function handleOrderCreate(shopifyOrder) {
-  console.log('📦 Processing new order:', shopifyOrder.order_number);
+export function getPointsForWalletType(walletType) {
+  return WALLET_MAPPINGS[walletType]?.points || 0;
+}
 
-  const customerName = shopifyOrder.customer 
-    ? `${shopifyOrder.customer.first_name || ''} ${shopifyOrder.customer.last_name || ''}`.trim()
-    : shopifyOrder.billing_address?.name || 'Unknown';
+/**
+ * Check if a product is an accessory (not a wallet)
+ */
+export function isAccessory(productName) {
+  if (!productName) return false;
+  
+  const name = productName.toLowerCase();
+  const ACCESSORY_KEYWORDS = [
+    'monogram',
+    'special engraving',
+    'monogram_font',
+    'engraving_font',
+    'engraving_location',
+    'customer_note',
+    'custom_logo',
+    'add custom id',
+    'badge type',
+    'add custom badge cutout',
+    'rfid cards',
+    'extra'
+  ];
+  
+  return ACCESSORY_KEYWORDS.some(keyword => name.includes(keyword));
+}
 
-  const customerEmail = shopifyOrder.customer?.email || 
-                       shopifyOrder.contact_email || 
-                       null;
+/**
+ * Process a line item and assign wallet type and points
+ * Now handles accessories separately
+ */
+export async function processLineItem(supabase, lineItem) {
+  // Skip if it's an accessory
+  if (lineItem.item_type === 'accessory') {
+    console.log(`⚙️ Skipping accessory: ${lineItem.product_name}`);
+    return lineItem;
+  }
 
-  const orderTags = shopifyOrder.tags ? shopifyOrder.tags.split(',').map(t => t.trim()) : [];
-
-  // Create parent order
-  const orderData = {
-    order_number: shopifyOrder.order_number.toString(),
-    shopify_order_id: shopifyOrder.id.toString(),
-    status: 'pending',
-    orderer_name: customerName,
-    points: 0,
-    wallet_type: null,
-    total_wallets: shopifyOrder.line_items.length,
-    
-    shopify_metadata: {
-      shopify_order_id: shopifyOrder.id,
-      order_number: shopifyOrder.order_number,
-      customer_email: customerEmail,
-      customer_name: customerName,
-      tags: orderTags,
-      financial_status: shopifyOrder.financial_status,
-      fulfillment_status: shopifyOrder.fulfillment_status,
-      note: shopifyOrder.note || null,
-      note_attributes: shopifyOrder.note_attributes || [],
-      total_price: shopifyOrder.total_price,
-      currency: shopifyOrder.currency,
-      created_at: shopifyOrder.created_at,
-      shipping_address: shopifyOrder.shipping_address,
-    }
-  };
-
-  const { data: insertedOrder, error: orderError } = await supabase
-    .from('orders')
-    .insert([orderData])
+  // Determine wallet type from product name
+  const walletType = getWalletType(lineItem.product_name);
+  
+  if (!walletType) {
+    console.warn('⚠️ Could not determine wallet type for:', lineItem.product_name);
+    return null;
+  }
+  
+  const points = getPointsForWalletType(walletType);
+  
+  // Update the line item
+  const { data, error } = await supabase
+    .from('order_line_items')
+    .update({
+      wallet_type: walletType,
+      points: points
+    })
+    .eq('id', lineItem.id)
     .select()
     .single();
-
-  if (orderError) {
-    console.error('❌ Order insert error:', orderError);
-    throw orderError;
-  }
-
-  console.log('✅ Order inserted:', insertedOrder.order_number);
-
-  // Create line items
-  const lineItemsData = shopifyOrder.line_items.map(item => {
-    const itemTags = extractLineItemTags(item);
-    
-    return {
-      order_id: insertedOrder.id,
-      order_number: insertedOrder.order_number,
-      
-      product_id: item.product_id?.toString(),
-      variant_id: item.variant_id?.toString(),
-      sku: item.sku,
-      product_name: item.title,
-      variant_name: item.variant_title,
-      quantity: item.quantity,
-      price: parseFloat(item.price),
-      
-      wallet_type: null,
-      points: 0,
-      tags: itemTags,
-      status: 'pending',
-      
-      shopify_line_item: {
-        product_id: item.product_id,
-        variant_id: item.variant_id,
-        sku: item.sku,
-        title: item.title,
-        variant_title: item.variant_title,
-        quantity: item.quantity,
-        price: item.price,
-        properties: item.properties || [],
-        vendor: item.vendor,
-        product_type: item.product_type,
-      }
-    };
-  });
-
-  const { data: insertedLineItems, error: lineItemsError } = await supabase
-    .from('order_line_items')
-    .insert(lineItemsData)
-    .select();
-
-  if (lineItemsError) {
-    console.error('❌ Line items insert error:', lineItemsError);
-    throw lineItemsError;
-  }
-
-  console.log(`✅ Created ${insertedLineItems.length} line items`);
-  insertedLineItems.forEach((item, idx) => {
-    console.log(`   Wallet ${idx + 1}: ${item.product_name}${item.variant_name ? ' - ' + item.variant_name : ''}`);
-    if (item.tags.length > 0) {
-      console.log(`      Tags: ${item.tags.join(', ')}`);
-    }
-  });
   
-  return insertedOrder;
+  if (error) {
+    console.error('❌ Error updating line item:', error);
+    return null;
+  }
+  
+  console.log(`✅ Assigned ${walletType} (${points} pts) to: ${lineItem.product_name}`);
+  return data;
 }
 
 /**
- * Handle order updates
+ * Process all line items for an order
+ * Separates wallets from accessories and updates order totals
  */
-async function handleOrderUpdate(shopifyOrder) {
-  console.log('🔄 Updating order:', shopifyOrder.order_number);
-
-  const customerName = shopifyOrder.customer 
-    ? `${shopifyOrder.customer.first_name || ''} ${shopifyOrder.customer.last_name || ''}`.trim()
-    : shopifyOrder.billing_address?.name || 'Unknown';
-
-  const customerEmail = shopifyOrder.customer?.email || 
-                       shopifyOrder.contact_email || 
-                       null;
-
-  const orderTags = shopifyOrder.tags ? shopifyOrder.tags.split(',').map(t => t.trim()) : [];
-
-  const updateData = {
-    orderer_name: customerName,
-    updated_at: new Date().toISOString(),
-    
-    shopify_metadata: {
-      shopify_order_id: shopifyOrder.id,
-      order_number: shopifyOrder.order_number,
-      customer_email: customerEmail,
-      customer_name: customerName,
-      tags: orderTags,
-      financial_status: shopifyOrder.financial_status,
-      fulfillment_status: shopifyOrder.fulfillment_status,
-      note: shopifyOrder.note || null,
-      note_attributes: shopifyOrder.note_attributes || [],
-      total_price: shopifyOrder.total_price,
-      currency: shopifyOrder.currency,
-      created_at: shopifyOrder.created_at,
-      updated_at: shopifyOrder.updated_at,
-      cancelled_at: shopifyOrder.cancelled_at,
-      shipping_address: shopifyOrder.shipping_address,
-    }
-  };
-
-  const { error: orderError } = await supabase
+export async function processOrderLineItems(supabase, orderId) {
+  // Get all line items for this order
+  const { data: lineItems, error: fetchError } = await supabase
+    .from('order_line_items')
+    .select('*')
+    .eq('order_id', orderId);
+  
+  if (fetchError) {
+    console.error('❌ Error fetching line items:', fetchError);
+    return;
+  }
+  
+  // Separate wallets from accessories
+  const walletItems = lineItems.filter(item => item.item_type === 'wallet');
+  const accessoryItems = lineItems.filter(item => item.item_type === 'accessory');
+  
+  console.log(`Processing ${walletItems.length} wallets and ${accessoryItems.length} accessories`);
+  
+  // Process only wallet items
+  const results = await Promise.all(
+    walletItems.map(item => processLineItem(supabase, item))
+  );
+  
+  // Calculate total points for the order (wallets only)
+  const totalPoints = results
+    .filter(Boolean)
+    .reduce((sum, item) => sum + item.points, 0);
+  
+  // Collate all wallet types
+  const walletTypes = results
+    .filter(Boolean)
+    .map(item => item.wallet_type)
+    .filter(Boolean)
+    .join(', ');
+  
+  // Update parent order with totals
+  await supabase
     .from('orders')
-    .update(updateData)
-    .eq('order_number', shopifyOrder.order_number.toString());
-
-  if (orderError) {
-    console.error('❌ Order update error:', orderError);
-    throw orderError;
-  }
-
-  if (shopifyOrder.cancelled_at) {
-    const { error: voidError } = await supabase
-      .from('order_line_items')
-      .update({
-        status: 'void',
-        voided_at: shopifyOrder.cancelled_at
-      })
-      .eq('order_number', shopifyOrder.order_number.toString())
-      .eq('status', 'pending');
-
-    if (voidError) {
-      console.error('❌ Line items void error:', voidError);
-    } else {
-      console.log('✅ Voided pending line items');
-    }
-  }
-
-  console.log('✅ Order updated:', shopifyOrder.order_number);
-  console.log('   Financial:', shopifyOrder.financial_status);
-  console.log('   Fulfillment:', shopifyOrder.fulfillment_status);
+    .update({ 
+      points: totalPoints,
+      wallet_type: walletTypes,
+      total_wallets: walletItems.length,
+      total_accessories: accessoryItems.length
+    })
+    .eq('id', orderId);
+  
+  console.log(`✅ Processed order: ${walletItems.length} wallets (${totalPoints} pts), ${accessoryItems.length} accessories`);
+  console.log(`   Wallet types: ${walletTypes}`);
+  
+  return results;
 }
 
-console.log('Secret prefix:', process.env.SHOPIFY_WEBHOOK_SECRET.substring(0, 20));
+/**
+ * Get wallet customization summary
+ * Useful for displaying wallet details in UI
+ */
+export function getWalletCustomizationSummary(walletAttributes) {
+  if (!walletAttributes) return [];
+  
+  const customizations = [];
+  
+  if (walletAttributes.color) {
+    customizations.push(`Color: ${walletAttributes.color}`);
+  }
+  
+  if (walletAttributes.has_monogram) {
+    const text = walletAttributes.monogram_text ? ` (${walletAttributes.monogram_text})` : '';
+    const font = walletAttributes.monogram_font ? ` - ${walletAttributes.monogram_font}` : '';
+    customizations.push(`Monogram${text}${font}`);
+  }
+  
+  if (walletAttributes.has_special_engraving) {
+    const text = walletAttributes.special_engraving_text ? ` (${walletAttributes.special_engraving_text})` : '';
+    const font = walletAttributes.engraving_font ? ` - ${walletAttributes.engraving_font}` : '';
+    const location = walletAttributes.engraving_location ? ` at ${walletAttributes.engraving_location}` : '';
+    customizations.push(`Special Engraving${text}${font}${location}`);
+  }
+  
+  if (walletAttributes.has_custom_id) {
+    const text = walletAttributes.custom_id_text ? ` (${walletAttributes.custom_id_text})` : '';
+    customizations.push(`Custom ID${text}`);
+  }
+  
+  if (walletAttributes.has_badge_cutout) {
+    const type = walletAttributes.badge_type ? ` (${walletAttributes.badge_type})` : '';
+    customizations.push(`Badge Cutout${type}`);
+  } else if (walletAttributes.badge_type) {
+    customizations.push(`Badge Type: ${walletAttributes.badge_type}`);
+  }
+  
+  if (walletAttributes.has_custom_logo) {
+    const details = walletAttributes.custom_logo_details ? ` (${walletAttributes.custom_logo_details})` : '';
+    customizations.push(`Custom Logo${details}`);
+  }
+  
+  if (walletAttributes.thread_color) {
+    customizations.push(`Thread: ${walletAttributes.thread_color}`);
+  }
+  
+  if (walletAttributes.customer_note) {
+    customizations.push(`Note: ${walletAttributes.customer_note}`);
+  }
+  
+  if (walletAttributes.other_customizations?.length > 0) {
+    walletAttributes.other_customizations.forEach(custom => {
+      customizations.push(`${custom.name}: ${custom.value}`);
+    });
+  }
+  
+  return customizations;
+}
+
+/**
+ * HELPER: Get all unmapped line items (wallets only)
+ */
+export async function getUnmappedLineItems(supabase) {
+  const { data, error } = await supabase
+    .from('order_line_items')
+    .select('*')
+    .eq('item_type', 'wallet')
+    .is('wallet_type', null);
+  
+  if (error) {
+    console.error('Error fetching unmapped items:', error);
+    return [];
+  }
+  
+  return data;
+}
+
+/**
+ * HELPER: Batch process all unmapped wallet line items
+ */
+export async function processAllUnmappedLineItems(supabase) {
+  const unmappedItems = await getUnmappedLineItems(supabase);
+  
+  console.log(`Found ${unmappedItems.length} unmapped wallet items`);
+  
+  for (const item of unmappedItems) {
+    await processLineItem(supabase, item);
+  }
+  
+  console.log('✅ Finished processing all unmapped items');
+}
+
+/**
+ * HELPER: Test your mappings
+ */
+export function testMappings() {
+  const testProducts = [
+    "Peyton",
+    "The Richmond",
+    "Keller Money Clip",
+    "The Georgetown",
+    "Pflugerville",
+    "Minimalist Badge Wallet",
+    "Knife Sheath",
+    "Keychain",
+    "Passport Holder",
+    "Victory",
+    "Western Vertical Wallet",
+    "Valet Tray",
+    "Tyler Vertical Wallet",
+    "Mansfield",
+    "Leather Field Notes Cover",
+    "Badge Vertical Wallet",
+    "Apple Watch Leather Band",
+    "Glory Snap",
+    "Federal Badge Wallet Small",
+    "Western Long Wallet",
+    "The Houstonian Long Wallet",
+    "Badge Long Wallet",
+    "Sugar Land Clutch",
+    "Western Bifold Wallet",
+    "Trinity Trifold Wallet",
+    "Rio Grande",
+    "Badge Bifold Wallet",
+    "Badge Clutch Wallet",
+    "Western Trifold Wallet",
+    "Big Bend",
+    "Badge Trifold Wallet",
+    // Accessories
+    "RFID Blocking Card",
+    "Monogram Add-On",
+    "Gift Wrap Service"
+  ];
+
+  console.log('Testing wallet mappings...\n');
+  
+  testProducts.forEach(product => {
+    const type = getWalletType(product);
+    const isAcc = isAccessory(product);
+    const points = type ? getPointsForWalletType(type) : 0;
+    
+    if (isAcc) {
+      console.log(`⚙️ "${product}" → ACCESSORY (no points)`);
+    } else if (type) {
+      console.log(`✅ "${product}" → ${type} (${points} pts)`);
+    } else {
+      console.log(`❌ "${product}" → NO MATCH`);
+    }
+  });
+}
+
+// Uncomment to test:
+// testMappings();
