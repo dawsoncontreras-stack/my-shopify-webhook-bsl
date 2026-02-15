@@ -262,35 +262,6 @@ function extractWalletAttributes(lineItem) {
 }
 
 /**
- * Determine if a line item is a wallet product
- * Returns the wallet type if it's a wallet, null otherwise
- */
-function getWalletType(productName) {
-  if (!productName) return null;
-  
-  const name = productName.toLowerCase();
-  
-  // Import from walletMapping or define inline
-  const WALLET_KEYWORDS = [
-    'peyton', 'richmond', 'keller', 'georgetown', 'pflugerville',
-    'badge', 'western', 'passport', 'victory', 'tyler', 'mansfield',
-    'federal', 'houstonian', 'sugar land', 'trinity', 'rio grande',
-    'big bend', 'glory', 'bifold', 'trifold', 'clutch', 'long wallet',
-    'vertical wallet', 'money clip', 'minimalist'
-  ];
-  
-  // Check if product name contains wallet keywords
-  const isWallet = WALLET_KEYWORDS.some(keyword => name.includes(keyword));
-  
-  if (!isWallet) {
-    return null;
-  }
-  
-  // Return the product name as the wallet type (will be normalized later)
-  return productName;
-}
-
-/**
  * Determine if a line item is an accessory/add-on
  */
 function isAccessoryItem(productName) {
