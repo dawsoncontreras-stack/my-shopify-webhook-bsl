@@ -316,3 +316,5 @@ async function handleOrderUpdate(shopifyOrder) {
   console.log('   Financial:', shopifyOrder.financial_status);
   console.log('   Fulfillment:', shopifyOrder.fulfillment_status);
 }
+
+console.log('Secret prefix:', process.env.SHOPIFY_WEBHOOK_SECRET.substring(0, 20));
