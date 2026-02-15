@@ -9,6 +9,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+
+async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const rawBody = await getRawBody(req);
+    
+    // ADD THIS:
+    console.log('First 200 chars of raw body:', rawBody.substring(0, 200));
+    console.log('Raw body starts with:', rawBody[0]);
+    console.log('Raw body encoding check:', Buffer.from(rawBody, 'utf8').toString('utf8') === rawBody);
+    
+    const body = JSON.parse(rawBody);
+  }
+  catch (error) {
+    console.log(error);
+  }{console.log(error)}}
+    // ... rest of code
+
 /**
  * Verify webhook is from Shopify
  * Uses the raw body exactly as received
