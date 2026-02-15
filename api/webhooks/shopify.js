@@ -11,17 +11,15 @@ const supabase = createClient(
 
 /**
  * Verify webhook is from Shopify
- * NOTE: In Vercel, req.body is already parsed, so we need to re-stringify it
+ * Uses the raw body exactly as received
  */
-function verifyShopifyWebhook(body, hmacHeader, secret) {
-  // Convert the parsed body back to a string for verification
-  const rawBody = typeof body === 'string' ? body : JSON.stringify(body);
-  
+function verifyShopifyWebhook(rawBody, hmacHeader, secret) {
   const hash = crypto
     .createHmac('sha256', secret)
     .update(rawBody, 'utf8')
     .digest('base64');
   
+  console.log('Raw body length:', rawBody.length);
   console.log('Computed hash:', hash);
   console.log('Shopify hash:', hmacHeader);
   console.log('Match:', hash === hmacHeader);
