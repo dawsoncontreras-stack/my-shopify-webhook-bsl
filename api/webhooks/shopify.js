@@ -68,6 +68,7 @@ export default async function handler(req, res) {
     const hmacHeader = req.headers['x-shopify-hmac-sha256'];
     const shopifyTopic = req.headers['x-shopify-topic'];
 
+    console.log('ALL HEADERS:', JSON.stringify(req.headers, null, 2));
     console.log('Secret from env:', process.env.SHOPIFY_WEBHOOK_SECRET ? 'EXISTS' : 'MISSING');
     console.log('HMAC header:', hmacHeader);
     console.log('Topic:', shopifyTopic);
