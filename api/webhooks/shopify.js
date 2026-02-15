@@ -10,6 +10,79 @@ const supabase = createClient(
 );
 
 /**
+ * WALLET TYPE MAPPINGS - Inline version for webhook
+ * (Could be imported from walletMapping.js if using ES modules)
+ */
+const WALLET_MAPPINGS = {
+  'Peyton': { keywords: ['peyton'], points: 2 },
+  'The Richmond': { keywords: ['richmond'], points: 2 },
+  'Keller Money Clip': { keywords: ['keller money clip', 'keller'], points: 2 },
+  'The Georgetown': { keywords: ['georgetown'], points: 2 },
+  'Pflugerville': { keywords: ['pflugerville'], points: 2 },
+  'Minimalist Badge Wallet': { keywords: ['minimalist badge wallet', 'minimalist badge'], points: 2 },
+  'Knife Sheath': { keywords: ['knife sheath'], points: 2 },
+  'Keychain': { keywords: ['keychain'], points: 2 },
+  'Passport Holder': { keywords: ['passport holder', 'passport'], points: 3 },
+  'Victory': { keywords: ['victory'], points: 3 },
+  'Western Vertical Wallet': { keywords: ['western vertical wallet', 'western vertical'], points: 3 },
+  'Valet Tray': { keywords: ['valet tray'], points: 3 },
+  'Tyler Vertical Wallet': { keywords: ['tyler vertical wallet', 'tyler vertical'], points: 3 },
+  'Mansfield': { keywords: ['mansfield'], points: 3 },
+  'Leather Field Notes Cover': { keywords: ['leather field notes cover', 'field notes cover', 'field notes'], points: 3 },
+  'Badge Vertical Wallet': { keywords: ['badge vertical wallet', 'badge vertical'], points: 3 },
+  'Apple Watch Leather Band': { keywords: ['apple watch leather band', 'apple watch band', 'watch band'], points: 3 },
+  'Glory Snap': { keywords: ['glory snap'], points: 4 },
+  'Federal Badge Wallet Small': { keywords: ['federal badge wallet small', 'federal badge small'], points: 4 },
+  'Western Long Wallet': { keywords: ['western long wallet', 'western long'], points: 4 },
+  'The Houstonian Long Wallet': { keywords: ['houstonian long wallet', 'houstonian long', 'houstonian'], points: 4 },
+  'Badge Long Wallet': { keywords: ['badge long wallet', 'badge long'], points: 4 },
+  'Sugar Land Clutch': { keywords: ['sugar land clutch', 'sugar land'], points: 5 },
+  'Western Bifold Wallet': { keywords: ['western bifold wallet', 'western bifold'], points: 5 },
+  'Trinity Trifold Wallet': { keywords: ['trinity trifold wallet', 'trinity trifold', 'trinity'], points: 5 },
+  'Rio Grande': { keywords: ['rio grande'], points: 5 },
+  'Badge Bifold Wallet': { keywords: ['badge bifold wallet', 'badge bifold'], points: 5 },
+  'Badge Clutch Wallet': { keywords: ['badge clutch wallet', 'badge clutch'], points: 6 },
+  'Western Trifold Wallet': { keywords: ['western trifold wallet', 'western trifold'], points: 6 },
+  'Big Bend': { keywords: ['big bend'], points: 6 },
+  'Badge Trifold Wallet': { keywords: ['badge trifold wallet', 'badge trifold'], points: 6 },
+};
+
+/**
+ * Get wallet type from product name
+ */
+function getWalletType(productName) {
+  if (!productName) return null;
+  
+  const name = productName.toLowerCase();
+  
+  // Sort by keyword length (longest first) for more specific matches
+  const sortedMappings = Object.entries(WALLET_MAPPINGS).sort((a, b) => {
+    const maxLengthA = Math.max(...a[1].keywords.map(k => k.length));
+    const maxLengthB = Math.max(...b[1].keywords.map(k => k.length));
+    return maxLengthB - maxLengthA;
+  });
+  
+  for (const [walletType, config] of sortedMappings) {
+    const hasMatch = config.keywords.some(keyword => 
+      name.includes(keyword.toLowerCase())
+    );
+    
+    if (hasMatch) {
+      return walletType;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Get points for a wallet type
+ */
+function getPointsForWalletType(walletType) {
+  return WALLET_MAPPINGS[walletType]?.points || 0;
+}
+
+/**
  * Verify webhook is from Shopify
  */
 function verifyShopifyWebhook(rawBody, hmacHeader, secret) {
@@ -265,7 +338,8 @@ async function handleOrderCreate(shopifyOrder) {
   shopifyOrder.line_items.forEach(item => {
     const walletType = getWalletType(item.title);
     if (walletType) {
-      walletItems.push({ ...item, detected_wallet_type: walletType });
+      const points = getPointsForWalletType(walletType);
+      walletItems.push({ ...item, detected_wallet_type: walletType, points });
     } else if (isAccessoryItem(item.title)) {
       accessoryItems.push(item);
     } else {
@@ -274,14 +348,16 @@ async function handleOrderCreate(shopifyOrder) {
     }
   });
 
-  // Calculate total points (will be updated later by wallet mapping)
-  let totalPoints = 0;
+  // Calculate total points from all wallets
+  const totalPoints = walletItems.reduce((sum, item) => sum + item.points, 0);
   
   // Collate wallet types
   const walletTypes = walletItems
     .map(item => item.detected_wallet_type)
     .filter(Boolean)
     .join(', ');
+
+  console.log(`📊 Order has ${walletItems.length} wallets worth ${totalPoints} points total`);
 
   // Create parent order
   const orderData = {
@@ -331,7 +407,7 @@ async function handleOrderCreate(shopifyOrder) {
     return {
       order_id: insertedOrder.id,
       order_number: insertedOrder.order_number,
-      item_type: 'wallet', // NEW: Distinguish from accessories
+      item_type: 'wallet',
       
       product_id: item.product_id?.toString(),
       variant_id: item.variant_id?.toString(),
@@ -341,9 +417,9 @@ async function handleOrderCreate(shopifyOrder) {
       quantity: item.quantity,
       price: parseFloat(item.price),
       
-      wallet_type: null, // Will be assigned by wallet mapping function
-      points: 0, // Will be assigned by wallet mapping function
-      wallet_attributes: walletAttributes, // NEW: Structured wallet customization data
+      wallet_type: item.detected_wallet_type, // Already calculated
+      points: item.points, // Already calculated
+      wallet_attributes: walletAttributes,
       
       status: 'pending',
       
@@ -414,7 +490,7 @@ async function handleOrderCreate(shopifyOrder) {
 
     console.log(`✅ Created ${walletLineItemsData.length} wallet items and ${accessoryLineItemsData.length} accessory items`);
     
-    // Log wallet details
+    // Log wallet details with points
     insertedLineItems
       .filter(item => item.item_type === 'wallet')
       .forEach((item, idx) => {
@@ -423,9 +499,12 @@ async function handleOrderCreate(shopifyOrder) {
         if (attrs?.has_monogram) customizations.push('Monogram');
         if (attrs?.has_custom_id) customizations.push('Custom ID');
         if (attrs?.has_badge_cutout) customizations.push('Badge Cutout');
+        if (attrs?.has_special_engraving) customizations.push('Engraving');
         
-        console.log(`   Wallet ${idx + 1}: ${item.product_name}${item.variant_name ? ' - ' + item.variant_name : ''}${customizations.length > 0 ? ' [' + customizations.join(', ') + ']' : ''}`);
+        console.log(`   Wallet ${idx + 1}: ${item.product_name}${item.variant_name ? ' - ' + item.variant_name : ''} → ${item.wallet_type} (${item.points} pts)${customizations.length > 0 ? ' [' + customizations.join(', ') + ']' : ''}`);
       });
+    
+    console.log(`📊 Order total: ${totalPoints} points`);
   }
 
   return { success: true, order: insertedOrder };
